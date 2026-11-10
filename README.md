@@ -96,10 +96,29 @@ entrenamiento y ajuste de tres modelos.
 **Brayan:** evaluación, comparación de modelos,
 selección del mejor y conclusiones.
 
+
 ## Aplicación Streamlit
 
-En desarrollo. Se añadirá el enlace público cuando
-la aplicación esté desplegada.
+El proyecto cuenta con una aplicación web interactiva
+desarrollada con Streamlit.
+
+La aplicación permite:
+
+- Consultar información general del proyecto.
+- Visualizar gráficas exploratorias del dataset Saber 11.
+- Examinar una vista previa de los datos.
+- Ingresar características de un estudiante en el
+  formulario de predicción.
+
+**Enlace de la aplicación:**
+
+https://saber11-ciencia-datos-helen.streamlit.app/
+
+**Estado:** versión preliminar publicada.
+La predicción real y la comparación de modelos se
+integrarán cuando finalice el entrenamiento y la
+evaluación de los modelos de Machine Learning.
+
 
 ## Estado del proyecto
 
