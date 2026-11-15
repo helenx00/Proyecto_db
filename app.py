@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
+import joblib
 
 # ==========================================
 # 1. CONFIGURACIÓN
@@ -219,6 +220,17 @@ try:
 except Exception as e:
     st.error(f"No se pudo cargar el dataset: {e}")
     st.stop()
+
+# ==========================================
+# 6.1. CARGAR MODELO ENTRENADO
+# ==========================================
+
+@st.cache_resource
+def cargar_modelo():
+    ruta = Path(__file__).resolve().parent / "models" / "modelo_saber11.joblib"
+    if not ruta.is_file():
+        raise FileNotFoundError(f"No se encontró el modelo en: {ruta}")
+    return joblib.load(ruta)
 
 # ==========================================
 # 7. MENÚ LATERAL
@@ -526,22 +538,17 @@ elif pagina == "Exploración":
 elif pagina == "Predicción":
 
     st.title("🔮 Predicción del desempeño académico")
-
     st.write(
-        "Esta sección permitirá ingresar "
-        "características de un estudiante "
-        "y obtener una predicción mediante "
-        "el modelo seleccionado."
+        "Ingresa las características del estudiante para estimar su "
+        "puntaje global en Saber 11 con el modelo Random Forest optimizado."
     )
 
     mostrar_aviso(
-        "El modelo de Machine Learning todavía "
-        "está en desarrollo. La predicción estará "
-        "disponible cuando se integre.",
-        "Modelo pendiente"
+        "Esta es una estimación estadística, no un puntaje oficial. "
+        "El modelo presenta un error promedio aproximado de 34.54 puntos "
+        "(MAE) y capacidad predictiva limitada.",
+        "Interpretación"
     )
-
-    st.subheader("Características del estudiante")
 
     variables = [
         "fami_estratovivienda",
@@ -565,23 +572,17 @@ elif pagina == "Predicción":
         "estu_genero": "Género del estudiante"
     }
 
-    with st.form("formulario_prediccion"):
+    st.subheader("Características del estudiante")
 
+    with st.form("formulario_prediccion"):
         col1, col2 = st.columns(2)
         datos_estudiante = {}
 
         for indice, variable in enumerate(variables):
-
             opciones = sorted(
-                df[variable]
-                .dropna()
-                .astype(str)
-                .unique()
-                .tolist()
+                df[variable].dropna().astype(str).unique().tolist()
             )
-
             columna = col1 if indice % 2 == 0 else col2
-
             with columna:
                 datos_estudiante[variable] = st.selectbox(
                     etiquetas.get(variable, variable),
@@ -590,17 +591,26 @@ elif pagina == "Predicción":
                 )
 
         enviar = st.form_submit_button(
-            "Realizar predicción",
-            use_container_width=True
+            "Predecir puntaje", use_container_width=True
         )
 
     if enviar:
-        mostrar_aviso(
-            "El formulario funciona correctamente. "
-            "La predicción real se habilitará "
-            "cuando integremos el modelo entrenado.",
-            "Formulario recibido"
-        )
+        try:
+            modelo = cargar_modelo()
+            entrada = pd.DataFrame([datos_estudiante], columns=variables)
+            prediccion = float(modelo.predict(entrada)[0])
+            st.success("¡Predicción realizada correctamente!")
+            st.metric("Puntaje global estimado", f"{prediccion:.1f} / 500")
+            st.caption(
+                "Resultado estimado por Random Forest optimizado. "
+                "No garantiza el resultado real de un estudiante."
+            )
+        except Exception as e:
+            st.error(f"No fue posible realizar la predicción: {e}")
+            st.info(
+                "Comprueba que models/modelo_saber11.joblib exista "
+                "y que scikit-learn y joblib estén instalados."
+            )
 
 # ==========================================
 # 11. RESULTADOS
@@ -609,48 +619,90 @@ elif pagina == "Predicción":
 elif pagina == "Resultados":
 
     st.title("🏆 Comparación de modelos")
-
     st.write(
-        "En esta sección se presentarán los "
-        "resultados de los tres modelos "
-        "de Machine Learning."
+        "Se entrenaron tres modelos de regresión y se evaluaron "
+        "sobre los mismos 2.000 registros de prueba."
     )
 
-    mostrar_aviso(
-        "Pendiente de integrar los resultados "
-        "del entrenamiento y evaluación.",
-        "Estado"
+    resultados_modelos = pd.DataFrame({
+        "Modelo": [
+            "Random Forest optimizado",
+            "Regresión lineal",
+            "Árbol de decisión optimizado"
+        ],
+        "MAE": [34.5366, 34.4945, 35.2354],
+        "RMSE": [43.0518, 43.1097, 43.9658],
+        "R²": [0.1762, 0.1740, 0.1408]
+    })
+
+    st.subheader("Evaluación de los modelos")
+    st.dataframe(
+        resultados_modelos.style.format({
+            "MAE": "{:.4f}",
+            "RMSE": "{:.4f}",
+            "R²": "{:.4f}"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+    st.caption(
+        "MAE y RMSE: menor es mejor. R²: mayor es mejor. "
+        "Resultados obtenidos en el conjunto de prueba."
     )
 
-    st.subheader("Evaluación de modelos")
-
-    st.write(
-        "Las métricas dependerán del tipo "
-        "de problema predictivo definido."
+    st.subheader("Comparación del error RMSE")
+    fig_resultados, ax_resultados = plt.subplots(figsize=(10, 4.5))
+    nombres_cortos = ["Random Forest", "Regresión lineal", "Árbol de decisión"]
+    barras = ax_resultados.bar(
+        nombres_cortos,
+        resultados_modelos["RMSE"],
+        color=[AZUL, ROSADO, "#A9B8D2"],
+        edgecolor="white",
+        width=0.62
     )
-
-    st.write(
-        "Para clasificación: Accuracy, "
-        "Precision, Recall y F1-score."
+    preparar_grafica(
+        ax_resultados, fig_resultados,
+        "Error RMSE por modelo", "Modelo", "RMSE (puntos)"
     )
-
-    st.write(
-        "Para regresión: MAE, RMSE y R²."
-    )
+    ax_resultados.set_ylim(0, 52)
+    for barra, valor in zip(barras, resultados_modelos["RMSE"]):
+        ax_resultados.text(
+            barra.get_x() + barra.get_width() / 2,
+            barra.get_height() + 0.7,
+            f"{valor:.2f}",
+            ha="center", color=AZUL_OSCURO
+        )
+    fig_resultados.tight_layout()
+    st.pyplot(fig_resultados)
+    plt.close(fig_resultados)
 
     st.subheader("Modelo seleccionado")
-
+    st.success("Random Forest optimizado — RMSE: 43.0518 | R²: 0.1762")
     st.write(
-        "Aquí se mostrará el modelo con mejor "
-        "desempeño y la justificación de "
-        "su selección."
+        "Se seleccionó Random Forest por obtener el menor RMSE y el mayor R². "
+        "Su ventaja frente a la regresión lineal es pequeña (0.0579 puntos "
+        "de RMSE), y la regresión lineal obtuvo un MAE ligeramente menor."
+    )
+    st.write(
+        "**Hiperparámetros:** 50 árboles, profundidad máxima de 8, "
+        "mínimo de 10 muestras para dividir y 2 muestras por hoja."
     )
 
     st.subheader("Conclusiones")
-
     st.write(
-        "Las conclusiones finales se agregarán "
-        "después de comparar los modelos."
+        "Los modelos permiten estimar el puntaje global a partir de ocho "
+        "variables socioeconómicas, familiares y educativas, pero la "
+        "capacidad predictiva es limitada: el mejor R² fue 0.1762. "
+        "Esto indica que gran parte de la variación del puntaje no queda "
+        "explicada por las variables seleccionadas."
+    )
+    mostrar_aviso(
+        "Se utilizaron los primeros 10.000 registros disponibles del dataset "
+        "consultado, no una muestra aleatoria representativa de Colombia. "
+        "Las asociaciones observadas no demuestran causalidad y las "
+        "predicciones no deben emplearse para tomar decisiones académicas "
+        "individuales.",
+        "Limitaciones del estudio"
     )
 
 # ==========================================
