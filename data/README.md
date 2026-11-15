@@ -14,7 +14,7 @@ https://www.datos.gov.co/resource/rnvb-vnyh.csv
 ## Descripción
 
 Se trabaja con una muestra de 10.000 registros
-correspondientes al periodo 2024-2.
+correspondientes al periodo 2020-2.
 
 El dataset original contiene 81 variables relacionadas
 con características de los estudiantes, sus familias,
